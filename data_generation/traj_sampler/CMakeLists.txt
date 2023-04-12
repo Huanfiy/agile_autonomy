@@ -9,7 +9,7 @@ find_package(LAPACK REQUIRED)
 
 # find all open3D stuff
 message("Searching open3D in /usr/local/lib/cmake/")
-find_package(Open3D HINTS /usr/local/lib/cmake/)
+find_package(Open3D HINTS /home/huan/open3d_install/lib/cmake/)
 list(APPEND Open3D_LIBRARIES dl)
 
 find_package(OpenMP)
