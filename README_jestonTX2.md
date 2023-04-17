@@ -42,3 +42,9 @@ make install
 sudo apt-get install libsdl-image1.2-dev
 ```
 
+***[What is sdl ?](https://en.wikipedia.org/wiki/Simple_DirectMedia_Layer)***
+
+`libffi`：
+
+***[What is libffi ?](https://sourceware.org/libffi/)***
+
