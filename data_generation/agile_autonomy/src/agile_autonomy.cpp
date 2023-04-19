@@ -48,9 +48,7 @@ AgileAutonomy::AgileAutonomy(const ros::NodeHandle& nh,
       nh_.subscribe("autopilot/off", 1, &AgileAutonomy::offCallback, this);
   force_hover_sub_ = nh_.subscribe("autopilot/force_hover", 1,
                                    &AgileAutonomy::forceHoverCallback, this);
-  completed_global_plan_sub_ =
-      nh_.subscribe("completed_global_plan", 1,
-                    &AgileAutonomy::completedGlobalPlanCallback, this);
+
 
   // Publishers
   control_command_pub_ = nh_.advertise<quadrotor_msgs::ControlCommand>(
@@ -59,8 +57,6 @@ AgileAutonomy::AgileAutonomy(const ros::NodeHandle& nh,
   ref_progress_pub_ = pnh_.advertise<std_msgs::Int32>("reference_progress", 1);
   setpoint_pub_ =
       pnh_.advertise<quadrotor_msgs::TrajectoryPoint>("setpoint", 1);
-  compute_global_path_pub_ =
-      pnh_.advertise<std_msgs::Float32>("compute_global_plan", 1);
 
   // Saving timer
   save_timer_ = nh_.createTimer(ros::Duration(1.0 / save_freq_),
@@ -232,14 +228,7 @@ void AgileAutonomy::computeManeuver(const bool only_expert) {
     reference_ready_ = false;
 
     if (perform_global_planning_) {
-      ROS_INFO(
-          "Not yet switching state machine, waiting for global reference to "
-          "arrive...");
-      setup_done_ = false;
-      only_expert_ = only_expert;
-      std_msgs::Float32 max_speed_msg;
-      max_speed_msg.data = maneuver_velocity_;
-      compute_global_path_pub_.publish(max_speed_msg);
+
     } else {
       setup_done_ = true;
       ROS_INFO("Gogogo!");
@@ -659,57 +648,6 @@ void AgileAutonomy::odometryCallback(const nav_msgs::OdometryConstPtr& msg) {
         ros::Time::now() - start_control_command_computation;
 
     publishControlCommand(control_cmd);
-  }
-}
-
-void AgileAutonomy::completedGlobalPlanCallback(
-    const std_msgs::BoolConstPtr& msg) {
-  if (!msg->data) {
-    ROS_WARN(
-        "Planner failed, not switching state and waiting for python to "
-        "restart "
-        "things...");
-    return;
-  }
-  ROS_INFO(
-      "Global Planner completed! Loading adapted reference trajectory now!");
-  quadrotor_common::Trajectory adapted_reference;
-
-  std::string adapted_ref_fname = curr_data_dir_ + "/ellipsoid_trajectory.csv";
-  loadReferenceTrajectory(&adapted_reference, adapted_ref_fname, true);
-
-  // check the trajectory
-  smoothTrajectory(&adapted_reference, maneuver_velocity_);
-  logging_helper_.saveTrajectorytoCSV(adapted_ref_fname, adapted_reference);
-
-  for (auto& point : adapted_reference.points) {
-    printf(
-        "t: %.2f | Position: %.2f, %.2f, %.2f | Velocity: %.2f, %.2f, %.2f\n",
-        point.time_from_start.toSec(), point.position.x(), point.position.y(),
-        point.position.z(), point.velocity.x(), point.velocity.y(),
-        point.velocity.z());
-  }
-
-  received_network_prediction_ = false;
-  network_prediction_.clear();
-  reference_ready_ = false;
-  setup_done_ = true;
-
-  acrobatic_trajectory_.points.clear();
-  acrobatic_trajectory_ = adapted_reference;
-  ROS_INFO("Gogogo!");
-  if (only_expert_) {
-    ROS_INFO("Switching to kExecuteExpert");
-    state_machine_ = StateMachine::kExecuteExpert;
-  } else {
-    ROS_INFO("Switching to kAutopilot");
-    state_machine_ = StateMachine::kAutopilot;
-  }
-  for (int i = 0; i < 1; i++) {
-    std_msgs::Bool bool_msg;
-    bool_msg.data = true;
-    start_flying_pub_.publish(bool_msg);
-    ros::Duration(0.05).sleep();
   }
 }
 
